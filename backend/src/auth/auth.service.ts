@@ -22,16 +22,23 @@ export class AuthService {
   ): Promise<Partial<User> | null> {
     const user = await this.usersService.findByEmailWithPassword(email);
 
+    if (!user) {
+      return null;
+    }
+
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
-    if (user && isPasswordValid) {
-      const { passwordHash, ...userData } = user;
-      return userData;
+    if (!isPasswordValid) {
+      return null;
     }
-    return null;
+
+    const { passwordHash, ...userData } = user;
+    return userData;
   }
 
   async login(user: Partial<User>) {
+    await this.authTokenRepository.delete({ user: { id: user.id } });
+
     const accessToken = this.jwtService.sign({ sub: user.id });
     const refreshToken = this.jwtService.sign(
       { sub: user.id },
@@ -61,6 +68,7 @@ export class AuthService {
     }
 
     if (new Date() > existingToken.expiresAt) {
+      await this.authTokenRepository.delete({ refreshToken });
       throw new UnauthorizedException('Refresh token expired');
     }
 
@@ -75,9 +83,24 @@ export class AuthService {
         throw new UnauthorizedException('Invalid credentials');
       }
 
-      const newAccessToken = this.jwtService.sign({ sub: user.id });
+      await this.authTokenRepository.delete({ refreshToken });
 
-      return { accessToken: newAccessToken };
+      const newAccessToken = this.jwtService.sign({ sub: user.id });
+      const newRefreshToken = this.jwtService.sign(
+        { sub: user.id },
+        { expiresIn: '7d' },
+      );
+
+      await this.authTokenRepository.save({
+        user,
+        refreshToken: newRefreshToken,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      });
+
+      return {
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+      };
     } catch (error) {
       throw new UnauthorizedException('Invalid credentials');
     }

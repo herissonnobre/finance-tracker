@@ -2,21 +2,19 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  Index,
   JoinColumn,
-  ManyToOne,
+  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from './user.entity';
 
 @Entity('auth_tokens')
-@Index('IDX_USER_ID', ['user'])
 export class AuthToken {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, (user) => user.authTokens)
+  @OneToOne(() => User, (user) => user.authToken, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
 

@@ -41,6 +41,7 @@ export class AuthController {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
     });
 
     return { accessToken };
@@ -48,20 +49,32 @@ export class AuthController {
 
   @Post('refresh-token')
   async refreshToken(@Request() req: RequestWithCookies) {
-    const refreshToken = req.cookies.refreshToken;
+    const oldRefreshToken = req.cookies.refreshToken;
 
-    if (!refreshToken) {
+    if (!oldRefreshToken) {
       throw new UnauthorizedException('Refresh token required');
     }
-    return this.authService.refreshToken(refreshToken);
+
+    const { accessToken, refreshToken } =
+      await this.authService.refreshToken(oldRefreshToken);
+
+    req.res?.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+
+    return { accessToken };
   }
 
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   async logout(@Request() req: IJwtAuthRequest) {
-    req.res.clearCookie('refreshToken');
-
     await this.authService.logout(req.user.userId);
+
+    req.res.clearCookie('refreshToken');
 
     return { message: 'Successfully logged out.' };
   }

@@ -2,7 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  OneToMany,
+  OneToOne,
   PrimaryGeneratedColumn,
   Unique,
   UpdateDateColumn,
@@ -39,6 +39,6 @@ export class User {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @OneToMany(() => AuthToken, (authToken) => authToken.user)
-  authTokens: AuthToken[];
+  @OneToOne(() => AuthToken, (authToken) => authToken.user, { cascade: true })
+  authToken: AuthToken;
 }
