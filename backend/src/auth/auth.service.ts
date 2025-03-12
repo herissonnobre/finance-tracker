@@ -42,7 +42,10 @@ export class AuthService {
     const accessToken = this.jwtService.sign({ sub: user.id });
     const refreshToken = this.jwtService.sign(
       { sub: user.id },
-      { expiresIn: '7d' },
+      {
+        expiresIn: '7d',
+        secret: process.env.REFRESH_TOKEN_SECRET || 'refresh-token-secret',
+      },
     );
 
     await this.authTokenRepository.save({
@@ -74,7 +77,7 @@ export class AuthService {
 
     try {
       const payload: { sub: string } = this.jwtService.verify(refreshToken, {
-        secret: process.env.JWT_SECRET,
+        secret: process.env.REFRESH_TOKEN_SECRET,
       });
 
       const user = await this.usersService.findOne(payload.sub);
@@ -88,7 +91,10 @@ export class AuthService {
       const newAccessToken = this.jwtService.sign({ sub: user.id });
       const newRefreshToken = this.jwtService.sign(
         { sub: user.id },
-        { expiresIn: '7d' },
+        {
+          expiresIn: '7d',
+          secret: process.env.REFRESH_TOKEN_SECRET || 'refresh-token-secret',
+        },
       );
 
       await this.authTokenRepository.save({

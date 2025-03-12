@@ -6,37 +6,35 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { LocalAuthGuard } from './local-auth.guard';
-import { JwtAuthGuard } from './jwt-auth.guard';
+import { LocalAuthGuard } from './guards/local-auth.guard';
 import { User } from '../common/entities/user.entity';
 import { Response, Request as ExpressRequest } from 'express';
+import { Public } from '../common/decorators/public.decorator';
+import { RefreshAuthGuard } from './guards/refresh-auth.guard';
 
-interface ILocalAuthRequest {
-  user: Partial<User>;
-  res: Response;
-}
-
-interface IJwtAuthRequest {
-  user: { userId: string };
-  res: Response;
-}
-
-interface RequestWithCookies extends ExpressRequest {
+interface IAuthRequest extends ExpressRequest {
+  user?: Partial<User> | { userId: string };
   cookies: { refreshToken?: string };
+  res?: Response;
 }
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @Public()
   @Post('login')
   @UseGuards(LocalAuthGuard)
-  async login(@Request() req: ILocalAuthRequest): Promise<any> {
+  async login(@Request() req: IAuthRequest): Promise<{ accessToken: string }> {
+    if (!req.user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
     const { accessToken, refreshToken } = await this.authService.login(
-      req.user,
+      req.user as Partial<User>,
     );
 
-    req.res.cookie('refreshToken', refreshToken, {
+    req.res?.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -47,8 +45,11 @@ export class AuthController {
     return { accessToken };
   }
 
+  @UseGuards(RefreshAuthGuard)
   @Post('refresh-token')
-  async refreshToken(@Request() req: RequestWithCookies) {
+  async refreshToken(
+    @Request() req: IAuthRequest,
+  ): Promise<{ accessToken: string }> {
     const oldRefreshToken = req.cookies.refreshToken;
 
     if (!oldRefreshToken) {
@@ -69,12 +70,16 @@ export class AuthController {
     return { accessToken };
   }
 
+  @UseGuards(RefreshAuthGuard)
   @Post('logout')
-  @UseGuards(JwtAuthGuard)
-  async logout(@Request() req: IJwtAuthRequest) {
+  async logout(@Request() req: IAuthRequest): Promise<{ message: string }> {
+    if (!req.user || typeof req.user !== 'object' || !('userId' in req.user)) {
+      throw new UnauthorizedException('Invalid user');
+    }
+
     await this.authService.logout(req.user.userId);
 
-    req.res.clearCookie('refreshToken');
+    req.res?.clearCookie('refreshToken');
 
     return { message: 'Successfully logged out.' };
   }
