@@ -70,6 +70,16 @@ export class UsersService {
     return user;
   }
 
+  async findByIdWithPassword(id: string): Promise<User> {
+    const user = await this.usersRepository.findOne({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    return user;
+  }
+
   async update(
     id: string,
     updateUserDto: UpdateUserDto,
@@ -103,5 +113,9 @@ export class UsersService {
     }
 
     await this.usersRepository.delete(id);
+  }
+
+  async save(user: User): Promise<User> {
+    return this.usersRepository.save(user);
   }
 }

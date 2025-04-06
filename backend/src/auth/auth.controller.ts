@@ -1,6 +1,9 @@
 import { AuthService } from './auth.service';
 import {
+  Body,
   Controller,
+  HttpCode,
+  HttpStatus,
   Post,
   Request,
   UnauthorizedException,
@@ -11,6 +14,8 @@ import { User } from '../common/entities/user.entity';
 import { Response, Request as ExpressRequest } from 'express';
 import { Public } from '../common/decorators/public.decorator';
 import { RefreshAuthGuard } from './guards/refresh-auth.guard';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 interface IAuthRequest extends ExpressRequest {
   user?: Partial<User> | { userId: string };
@@ -82,5 +87,33 @@ export class AuthController {
     req.res?.clearCookie('refreshToken');
 
     return { message: 'Successfully logged out.' };
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(
+    @Body() forgotPasswordDto: ForgotPasswordDto,
+  ): Promise<{ message: string }> {
+    await this.authService.sendResetPasswordEmail(forgotPasswordDto.email);
+
+    return {
+      message:
+        'If this email is registered, we have sent password reset instructions.',
+    };
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    await this.authService.resetPassword(
+      resetPasswordDto.token,
+      resetPasswordDto.newPassword,
+    );
+
+    return {
+      message: 'Your password has been successfully reset.',
+    };
   }
 }
